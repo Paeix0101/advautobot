@@ -15,15 +15,12 @@ def webhook():
     data = request.get_json()
     print("🔔 Incoming update:", data)
 
-    # If it's a message
     if "message" in data:
         message = data["message"]
         chat_id = message["chat"]["id"]
         text = message.get("text", "").strip()
 
-        # Only act on /accept command
         if text.lower() == "/accept":
-            # Check if user is admin
             user_id = message["from"]["id"]
             if is_admin(chat_id, user_id):
                 approve_all_pending_requests(chat_id)
@@ -34,7 +31,7 @@ def webhook():
     return {"ok": True}, 200
 
 def is_admin(chat_id, user_id):
-    """Check if user is admin in the group/channel"""
+    """Check if the user is an admin/owner of the chat"""
     resp = requests.get(f"{TELEGRAM_API}/getChatAdministrators", params={"chat_id": chat_id})
     if resp.ok:
         admins = resp.json().get("result", [])
@@ -42,13 +39,13 @@ def is_admin(chat_id, user_id):
     return False
 
 def approve_all_pending_requests(chat_id):
-    """Fetch and approve all pending join requests"""
+    """Approve all pending join requests for the given chat"""
     resp = requests.get(f"{TELEGRAM_API}/getChatJoinRequests", params={"chat_id": chat_id})
     if resp.ok:
         requests_list = resp.json().get("result", [])
         for req in requests_list:
-            user_id = req["from"]["id"]  # FIXED
-            approve = requests.post(f"{TELEGRAM_API}/approveChatJoinRequest", json={
+            user_id = req["from"]["id"]  # Correct key
+            approve = requests.post(f"{TELEGRAM_API}/approveChatJoinRequest", params={
                 "chat_id": chat_id,
                 "user_id": user_id
             })
@@ -58,6 +55,7 @@ def approve_all_pending_requests(chat_id):
                 print(f"❌ Failed to approve {user_id}: {approve.text}")
 
 def send_message(chat_id, text):
+    """Send a text message to a chat"""
     requests.post(f"{TELEGRAM_API}/sendMessage", json={
         "chat_id": chat_id,
         "text": text
@@ -70,5 +68,4 @@ def set_webhook():
     return resp.json()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # FIXED
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
