@@ -43,12 +43,11 @@ def is_admin(chat_id, user_id):
 
 def approve_all_pending_requests(chat_id):
     """Fetch and approve all pending join requests"""
-    # Get pending requests
     resp = requests.get(f"{TELEGRAM_API}/getChatJoinRequests", params={"chat_id": chat_id})
     if resp.ok:
         requests_list = resp.json().get("result", [])
         for req in requests_list:
-            user_id = req["user"]["id"]
+            user_id = req["from"]["id"]  # FIXED
             approve = requests.post(f"{TELEGRAM_API}/approveChatJoinRequest", json={
                 "chat_id": chat_id,
                 "user_id": user_id
@@ -71,4 +70,5 @@ def set_webhook():
     return resp.json()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 5000))  # FIXED
+    app.run(host="0.0.0.0", port=port)
