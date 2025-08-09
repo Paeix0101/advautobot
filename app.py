@@ -3,9 +3,8 @@ import requests
 from flask import Flask, request
 from config import BOT_TOKEN, WEBHOOK_SECRET
 
-TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
-
 app = Flask(__name__)
+TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 def is_admin(chat_id, user_id):
     """Check if a user is admin in the chat."""
@@ -23,17 +22,23 @@ def approve_all_join_requests(chat_id):
         count = 0
         for req_data in join_requests:
             user_id = req_data["user"]["id"]
-            approve_resp = requests.post(f"{TELEGRAM_API}/approveChatJoinRequest",
-                                         json={"chat_id": chat_id, "user_id": user_id})
+            approve_resp = requests.post(
+                f"{TELEGRAM_API}/approveChatJoinRequest",
+                json={"chat_id": chat_id, "user_id": user_id}
+            )
             if approve_resp.ok:
                 count += 1
+            else:
+                print("❌ Error approving:", approve_resp.text)
         return count
+    else:
+        print("❌ Error fetching join requests:", resp.text)
     return 0
 
 @app.route(f"/{WEBHOOK_SECRET}", methods=["POST"])
 def webhook():
     update = request.get_json()
-    print("Received update:", update)
+    print("📩 Update received:", update)
 
     if "message" in update:
         message = update["message"]
@@ -43,10 +48,10 @@ def webhook():
 
         if text.lower() == "/accept":
             if is_admin(chat_id, user_id):
-                count = approve_all_join_requests(chat_id)
+                approved_count = approve_all_join_requests(chat_id)
                 requests.post(f"{TELEGRAM_API}/sendMessage", json={
                     "chat_id": chat_id,
-                    "text": f"✅ Approved {count} pending join requests."
+                    "text": f"✅ Approved {approved_count} pending join requests."
                 })
             else:
                 requests.post(f"{TELEGRAM_API}/sendMessage", json={
@@ -58,7 +63,7 @@ def webhook():
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Bot is running!", 200
+    return "✅ Bot is running!", 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
