@@ -1,52 +1,58 @@
 import os
 import requests
 from flask import Flask, request
+from config import BOT_TOKEN, WEBHOOK_SECRET
 
-# Replace with your bot token
-BOT_TOKEN = "8377271454:AAGZb39SXDRYfVBY2Zz-JXe8FfYXeCyYX8M"
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 app = Flask(__name__)
 
-# Webhook endpoint (must match your Render webhook path)
-WEBHOOK_PATH = "/x8d72n9kqp92s"
+def is_admin(chat_id, user_id):
+    """Check if a user is admin in the chat."""
+    resp = requests.get(f"{TELEGRAM_API}/getChatAdministrators", params={"chat_id": chat_id})
+    if resp.ok:
+        admins = resp.json().get("result", [])
+        return any(admin["user"]["id"] == user_id for admin in admins)
+    return False
 
 def approve_all_join_requests(chat_id):
     """Approve all pending join requests for the given chat."""
-    url = f"{TELEGRAM_API}/getChatJoinRequests"
-    params = {"chat_id": chat_id}
-    resp = requests.get(url, params=params).json()
+    resp = requests.get(f"{TELEGRAM_API}/getChatJoinRequests", params={"chat_id": chat_id})
+    if resp.ok:
+        join_requests = resp.json().get("result", [])
+        count = 0
+        for req_data in join_requests:
+            user_id = req_data["user"]["id"]
+            approve_resp = requests.post(f"{TELEGRAM_API}/approveChatJoinRequest",
+                                         json={"chat_id": chat_id, "user_id": user_id})
+            if approve_resp.ok:
+                count += 1
+        return count
+    return 0
 
-    if not resp.get("ok"):
-        print("Failed to get join requests:", resp)
-        return
-
-    requests_list = resp.get("result", [])
-    for req_data in requests_list:
-        user_id = req_data["user"]["id"]
-        approve_url = f"{TELEGRAM_API}/approveChatJoinRequest"
-        approve_params = {"chat_id": chat_id, "user_id": user_id}
-        approve_resp = requests.post(approve_url, data=approve_params).json()
-        print(f"Approved {user_id}: {approve_resp}")
-
-@app.route(WEBHOOK_PATH, methods=["POST"])
+@app.route(f"/{WEBHOOK_SECRET}", methods=["POST"])
 def webhook():
     update = request.get_json()
     print("Received update:", update)
 
-    # If message exists and is a command
     if "message" in update:
         message = update["message"]
         chat_id = message["chat"]["id"]
-        text = message.get("text", "")
+        text = message.get("text", "").strip()
+        user_id = message["from"]["id"]
 
-        # Only trigger on /accept
-        if text.strip() == "/accept":
-            approve_all_join_requests(chat_id)
-            requests.post(f"{TELEGRAM_API}/sendMessage", data={
-                "chat_id": chat_id,
-                "text": "✅ All pending join requests have been approved."
-            })
+        if text.lower() == "/accept":
+            if is_admin(chat_id, user_id):
+                count = approve_all_join_requests(chat_id)
+                requests.post(f"{TELEGRAM_API}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": f"✅ Approved {count} pending join requests."
+                })
+            else:
+                requests.post(f"{TELEGRAM_API}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": "⚠️ Only admins can use this command."
+                })
 
     return "ok", 200
 
