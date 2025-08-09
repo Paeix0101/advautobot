@@ -1,7 +1,7 @@
 import os
 
-# Bot token will come from Render's environment variables
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+# Your bot token (keep it safe, don't commit it publicly)
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8377271454:AAGZb39SXDRYfVBY2Zz-JXe8FfYXeCyYX8M")
 
-# Random webhook secret
+# Webhook secret — must match in setWebhook URL
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "x8d72n9kqp92s")
